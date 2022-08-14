@@ -1,6 +1,7 @@
 import pandas as pd
 import numpy as np
 import datetime
+import os, math, warnings, math, pickle
 
 # debug模式：从训练集中划出一部分数据来调试代码
 def get_all_click_sample(data_path, sample_nums=10000):
@@ -54,9 +55,33 @@ def submit(recall_df, topk=5, model_name=None, save_path="./output/"):
     save_name = save_path + model_name + '_' + datetime.today().strftime('%m-%d') + '.csv'
     submit.to_csv(save_name, index=False, header=True)
 
+
+def get_item_info_df(data_path):
+    item_info_df = pd.read_csv(data_path + 'articles.csv')
+    # 为了方便与训练集中的click_article_id拼接，需要把article_id修改成click_article_id
+    item_info_df = item_info_df.rename(columns={'article_id': 'click_article_id'})
+    return item_info_df
+
+
+# 读取文章的Embedding数据
+def get_item_emb_dict(data_path):
+    item_emb_df = pd.read_csv(data_path + 'articles_emb.csv')
+
+    item_emb_cols = [x for x in item_emb_df.columns if 'emb' in x]
+    item_emb_np = np.ascontiguousarray(item_emb_df[item_emb_cols])
+    # 进行归一化
+    item_emb_np = item_emb_np / np.linalg.norm(item_emb_np, axis=1, keepdims=True)
+
+    item_emb_dict = dict(zip(item_emb_df['article_id'], item_emb_np))
+    pickle.dump(item_emb_dict, open(data_path + 'item_content_emb.pkl', 'wb'))
+
+    return item_emb_dict
+
 if __name__ == '__main__':
     data_path = './data/'
     all_click_df = get_all_click_sample(data_path)
     all_click_df = get_all_click_df(data_path, offline=False)
     print("shape:", all_click_df.shape)
     print(all_click_df.head())
+    get_item_info_df(data_path)
+    get_item_emb_dict(data_path)
